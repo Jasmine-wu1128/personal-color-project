@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人色彩分析｜調出你的專屬色盤🎨</title>
+    <!-- 引入 html2canvas 渲染單張高畫質圖片 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        
+        /* 頁面背景採用圖片中的微暖米白色 */
+        body { background-color: #f7f4ef; color: #222222; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 30px 15px; }
+
+        /* 通用按鈕：採用珊瑚粉與暖色調系統 */
+        .btn { padding: 14px 24px; background: #e58282; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; transition: background 0.2s; font-size: 1rem; }
+        .btn:hover { background: #d86c6c; }
+        .btn:active { background: #c55757; }
+        .btn:disabled { background: #d2c8be; cursor: not-allowed; }
+        .btn-secondary { background: #e2bf81; margin-top: 10px; color: #ffffff; }
+        .btn-secondary:hover { background: #d4ae6d; }
+        .btn-download { background: #93b5c6; margin-top: 10px; color: #ffffff; }
+        .btn-download:hover { background: #7ea3b5; }
+
+        /* ===== 階段一：上傳頁面 (STEP 1) ===== */
+        #upload-page { background: #ffffff; padding: 32px 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); width: 100%; max-width: 520px; text-align: center; margin-top: 40px; border: 1px solid #e8e2d9; }
+        .upload-area { border: 2px dashed #d2c8be; border-radius: 12px; padding: 30px 20px; cursor: pointer; background: #fdfbf7; margin: 20px 0; transition: border-color 0.2s; }
+        .upload-area:hover { border-color: #e58282; }
+        #preview-img { max-width: 100%; max-height: 240px; border-radius: 8px; display: none; margin: 0 auto; object-fit: contain; }
+
+        /* ===== 階段二：獨立報告展示頁面 (STEP 2) ===== */
+        #report-page { display: none; width: 100%; max-width: 780px; }
+        
+        /* 導出為長圖的整體包覆容器 */
+        #full-report-container { background: #ffffff; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid #e8e2d9; margin-bottom: 16px; }
+
+        .report-section { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px dashed #e8e2d9; }
+        .report-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        
+        .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #f2ede4; }
+        .report-header h2 { font-size: 20px; font-weight: 700; color: #222222; }
+        .report-header .brand { font-size: 12px; color: #8c827a; background: #f7f4ef; padding: 4px 8px; border-radius: 4px; }
+
+        /* 報告 Section 1 內部版面 */
+        .report-body { display: grid; grid-template-columns: 220px 240px 1fr; gap: 16px; }
+        
+        .user-photo { 
+            width: 100%; 
+            height: 280px; 
+            border-radius: 12px; 
+            border: 1px solid #e8e2d9;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .middle-column { display: flex; flex-direction: column; gap: 12px; }
+        .info-box { background: #fdfbf7; border: 1px solid #e8e2d9; border-radius: 12px; padding: 14px; text-align: center; }
+        .info-box .label { font-size: 11px; font-weight: 700; color: #8c827a; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .season-title { font-size: 20px; font-weight: 800; color: #222222; margin-bottom: 4px; }
+        .season-subtitle { font-size: 12px; color: #665e57; margin-bottom: 8px; }
+        .tag-list { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+        .tag { font-size: 10px; background: #ffffff; border: 1px solid #e8e2d9; border-radius: 12px; padding: 2px 8px; color: #665e57; }
+
+        .score-row { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: #665e57; margin-top: 6px; }
+        .bar-container { flex: 1; height: 6px; background: #e8e2d9; border-radius: 3px; margin: 0 8px; position: relative; }
+        .bar-pointer { position: absolute; top: -3px; width: 12px; height: 12px; background: #e58282; border-radius: 50%; border: 2px solid #ffffff; transition: left 0.3s ease; }
+
+        .palette-box { background: #fdfbf7; border: 1px solid #e8e2d9; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; }
+        .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 12px; }
+        .color-circle { width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.08); margin: 0 auto; }
+        .palette-desc { font-size: 11px; color: #665e57; text-align: center; margin-top: 12px; }
+
+        .advice-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; font-size: 12px; }
+        .advice-box { background: #fdfbf7; border-radius: 8px; padding: 10px; border: 1px solid #e8e2d9; }
+        .advice-title { font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+
+        /* 報告 Section 2 內部版面 */
+        .section2-body { display: flex; flex-direction: column; gap: 12px; }
+        .guide-card { background: #fdfbf7; border: 1px solid #e8e2d9; border-radius: 12px; padding: 14px; }
+        .guide-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .guide-text { font-size: 13px; color: #444444; line-height: 1.6; }
+
+        .actions-wrapper { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px; }
+
+        /* ===== 手機版 RWD 自適應規則 ===== */
+        @media (max-width: 768px) {
+            body { padding: 12px 8px; }
+            #upload-page { padding: 24px 16px; margin-top: 16px; }
+            #full-report-container { padding: 16px; }
+            .report-body { grid-template-columns: 1fr; gap: 12px; }
+            .advice-section { grid-template-columns: 1fr; }
+            .color-circle { width: 30px; height: 30px; }
+            .palette-grid { gap: 6px; }
+            .user-photo {
+                height: 180px !important;
+                background-size: contain !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ================= STEP 1: 上傳照片頁面 ================= -->
+<div id="upload-page">
+    <div style="font-size: 12px; font-weight: 700; color: #e58282; letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase;">Personal Color</div>
+    <h1 style="font-size: 22px; color: #222222; margin-bottom: 8px; font-weight: 800; line-height: 1.3;">16型色彩分析 <br>調出你的專屬色盤🎨</h1>
+    
+    <div class="upload-area" onclick="document.getElementById('file-input').click()">
+        <span id="upload-txt" style="color: #665e57; font-size: 14px;">📷 點擊此處上傳<br>
+        <span style="font-size: 11px; color: #8c827a;">(請上傳光線充足且無濾鏡的正面照片)</span>
+        </span>
+        <img id="preview-img" alt="預覽圖">
+    </div>
+    <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileSelect(this.files[0])">
+    
+    <button class="btn" id="analyze-btn" onclick="uploadAndAnalyze()" disabled>開始分析</button>
+</div>
+
+<!-- ================= STEP 2: 獨立分析報告頁面 ================= -->
+<div id="report-page">
+    
+    <div id="full-report-container">
+        
+        <!-- Part 1: 診斷與 16 色圖鑑 -->
+        <div class="report-section">
+            <div class="report-header">
+                <h2>個人色彩分析報告 🎨</h2>
+            </div>
+
+            <div class="report-body">
+                <div class="user-photo" id="card-user-img"></div>
+
+                <div class="middle-column">
+                    <div class="info-box">
+                        <div class="label" sstyle="text-align: 11px; font-weight:700; color:#8c827a;"><b>Season</b></div>
+                        <div class="season-title" id="card-season">-</div>
+                        <div class="season-subtitle" id="card-subtitle">-</div>
+                        <div class="tag-list" id="card-tags"></div>
+                    </div>
+
+                    <div class="info-box" style="text-align: left;">
+                        <div class="label" style="text-align: center;"><b>PERSONAL SCORES</b></div>
+                        <div class="score-row">
+                            <span>WARM</span>
+                            <div class="bar-container"><div class="bar-pointer" id="pointer-warm" style="left: 50%;"></div></div>
+                            <span>COOL</span>
+                        </div>
+                        <div class="score-row">
+                            <span>LOW</span>
+                            <div class="bar-container"><div class="bar-pointer" id="pointer-light" style="left: 50%;"></div></div>
+                            <span>HIGH</span>
+                        </div>
+                        <div class="score-row">
+                            <span>SOFT</span>
+                            <div class="bar-container"><div class="bar-pointer" id="pointer-clear" style="left: 50%;"></div></div>
+                            <span>CLEAR</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="palette-box">
+                    <div class="label" style="text-align: 11px; font-weight:700; color:#8c827a;"><b>Your color 🎨</b></div>
+                    <div class="palette-grid" id="card-palette"></div>
+                    <div class="palette-desc" id="card-palette-desc">-</div>
+                </div>
+            </div>
+
+            <div class="advice-section">
+                <div class="advice-box">
+                    <div class="advice-title" style="color: #d86c6c;"><b>適合你的❤️</b></div>
+                    <div id="card-good-text" style="color: #444444;">-</div>
+                </div>
+                <div class="advice-box">
+                    <div class="advice-title" style="color: #8c827a;"><b>避雷指南🧭</b></div>
+                    <div id="card-bad-text" style="color: #444444;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Part 2: 彩妝、髮色與穿搭指南 -->
+        <div class="report-section">
+            <div class="report-header">
+                <h2>彩妝、髮色與穿搭指南 ✨</h2>
+            </div>
+
+            <div class="section2-body">
+                <div class="guide-card">
+                    <div class="guide-title" style="color: #e58282;"><b>💄 推薦彩妝色系 </b></div>
+                    <div class="guide-text" id="card-makeup-text">-</div>
+                </div>
+
+                <div class="guide-card">
+                    <div class="guide-title" style="color: #e2bf81;"><b>💇‍♀️ 推薦髮色與飾品</b></div>
+                    <div class="guide-text" id="card-hair-text">-</div>
+                </div>
+
+                <div class="guide-card">
+                    <div class="guide-title" style="color: #93b5c6;"><b>👗 穿搭與材質指南 </b></div>
+                    <div class="guide-text" id="card-outfit-text">-</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="actions-wrapper">
+        <button class="btn btn-download" onclick="downloadReportImage()">下載分析結果 📥</button>
+        <button class="btn btn-secondary" onclick="resetToUpload()">重新檢測 🔄</button>
+    </div>
+</div>
+
+<script>
+    let selectedFile = null;
+
+    const colorDatabase = {
+        "淺春 (Light Spring)": {
+            subtitle: "明亮明媚 × 清新溫柔",
+            tags: ["暖色調", "高明度", "低對比", "清亮"],
+            palette: ["#FFFFFF", "#FEF3C7", "#FDE68A", "#FCA5A5", "#F472B6", "#A7F3D0", "#6EE7B7", "#93C5FD", "#FDBA74", "#F97316", "#FED7AA", "#E0E7FF", "#C7D2FE", "#DDD6FE", "#FBCFE8"],
+            paletteDesc: "淺淡明亮帶暖意、如同春日盛開的花朵色系",
+            good: "象牙白、鮭魚粉、奶油黃、淺金飾品",
+            bad: "深沉純黑、極冷灰藍、沉悶灰濁色調",
+            makeup: "唇彩選水潤珊瑚粉或蜜桃色；眼影推薦金棕與香檳金；腮紅選擇暖杏色。",
+            hair: "適合淺棕、奶茶棕、蜜桃棕髮色；飾品首選亮面淺金色或 K 金。",
+            outfit: "適合質地輕盈的雪紡、純棉，多嘗試明亮淺色系穿搭，避免全身暗沉配色。"
+        },
+        "暖春 (Warm Spring)": {
+            subtitle: "極致陽光 × 生機盎然",
+            tags: ["極暖色", "中高明度", "鮮豔", "清亮"],
+            palette: ["#FFFBEB", "#FDE047", "#F97316", "#EF4444", "#10B981", "#84CC16", "#F59E0B", "#FB923C", "#F43F5E", "#059669", "#D97706", "#EA580C", "#4ADE80", "#FED7AA", "#FEE2E2"],
+            paletteDesc: "飽和度高的暖黃、暖橘與嫩綠，極富生命力",
+            good: "鮮橘、珊瑚紅、明黃、黃金首飾",
+            bad: "銀色飾品、帶灰調的冰冷色、藍紫色系",
+            makeup: "明亮暖橘系唇膏、金黃/暖茶色眼影、太陽橙色腮紅。",
+            hair: "焦糖棕、金棕色、暖銅色髮色；金黃色系飾品更能提亮氣色。",
+            outfit: "選擇高飽和度的暖色穿搭，適合絲綢或具自然光澤的質料。"
+        },
+        "亮春 (Bright Spring)": {
+            subtitle: "對比鮮明 × 活力耀眼",
+            tags: ["偏暖色", "高明度", "高彩度", "清亮"],
+            palette: ["#FFFFFF", "#FACC15", "#FB923C", "#F43F5E", "#EC4899", "#A855F7", "#3B82F6", "#10B981", "#EAB308", "#EF4444", "#D946EF", "#06B6D4", "#F472B6", "#38BDF8", "#4ADE80"],
+            paletteDesc: "極高彩度的明亮色系，帶有春季特有的璀璨感",
+            good: "高飽和鮮色、撞色搭配、亮面光澤布料",
+            bad: "灰暗濁色、大地棕感過重的古濁色",
+            makeup: "亮朱紅或亮桃粉唇膏；俐落眼線配高光提亮；彩妝感宜清晰明亮。",
+            hair: "亞麻棕、黑茶色；飾品適合高光澤拋光金屬。",
+            outfit: "大膽嘗試撞色組合與亮面漆皮/絲綢布料，發揮鮮明的視覺氣場。"
+        },
+        "柔春 (Soft Spring)": {
+            subtitle: "奶油質感 × 柔和親切",
+            tags: ["微暖色", "中明度", "低彩度", "柔和"],
+            palette: ["#FEF3C7", "#FDE68A", "#FED7AA", "#FBCFE8", "#C7D2FE", "#A7F3D0", "#E9D5FF", "#D1D5DB", "#F59E0B", "#F472B6", "#818CF8", "#34D399", "#FB923C", "#E879F9", "#CBD5E1"],
+            paletteDesc: "加入適度灰調的甜美暖色，氣質溫和典雅",
+            good: "燕麥色、奶茶色、粉杏色、玫瑰金飾品",
+            bad: "純黑白高對比、過於刺眼的熒光色",
+            makeup: "低飽和裸杏色唇膏、柔和霧面茶色眼影。",
+            hair: "燕麥奶茶色、暖灰棕髮色；飾品推薦玫瑰金或霧面金。",
+            outfit: "多穿著針織、羊毛等柔和質感服飾，同色系漸層穿搭最為合適。"
+        },
+        "柔秋 (Soft Autumn)": {
+            subtitle: "莫蘭迪暖灰 × 高級內斂",
+            tags: ["微暖色", "中明度", "低彩度", "灰濁"],
+            palette: ["#F5F5F4", "#E7E5E4", "#D6D3D1", "#A8A29E", "#78716C", "#D97706", "#B45309", "#047857", "#4D7C0F", "#9F1239", "#BE185D", "#6B21A8", "#451A03", "#78350F", "#1C1917"],
+            paletteDesc: "帶有灰灰色調的復古大地色系，極具典雅高級感",
+            good: "豆沙色、橄欖綠、卡其色、霧面皮革",
+            bad: "高飽和純鮮色、冷艷瑩光色、極白",
+            makeup: "乾燥玫瑰色、豆沙紅唇膏；煙燻大地色眼影、霧面妝感。",
+            hair: "冷棕色、巧克力棕；飾品選擇霧面古銅金或玳瑁材質。",
+            outfit: "麂皮、鹿皮絨、粗針織服飾，大地莫蘭迪配色盡顯高級質感。"
+        },
+        "暖秋 (Warm Autumn)": {
+            subtitle: "濃郁秋日 × 豐收大地",
+            tags: ["極暖色", "中低明度", "高飽和", "濃郁"],
+            palette: ["#FEF3C7", "#F59E0B", "#D97706", "#B45309", "#78350F", "#451A03", "#15803D", "#047857", "#991B1B", "#7F1D1D", "#9A3412", "#C2410C", "#65A30D", "#4D7C0F", "#292524"],
+            paletteDesc: "楓葉紅、琥珀黃與深棕色的完美交織",
+            good: "磚紅、芥末黃、焦糖色、黃銅金屬飾品",
+            bad: "純冷灰、冰藍色、粉紫系列",
+            makeup: "楓葉磚紅唇彩、金棕與古銅色彩妝、溫暖橘棕色腮紅。",
+            hair: "深栗子棕、銅紅棕髮色；黃銅與重金屬質感飾品最佳。",
+            outfit: "風衣、皮革、毛呢材質，楓葉紅與焦糖棕混合搭配最具魅力。"
+        },
+        "深秋 (Deep Autumn)": {
+            subtitle: "深邃沉穩 × 奢華神秘",
+            tags: ["暖色調", "低明度", "高對比", "深邃"],
+            palette: ["#292524", "#1C1917", "#451A03", "#78350F", "#991B1B", "#7F1D1D", "#064E3B", "#134E4A", "#312E81", "#581C87", "#701A75", "#831843", "#A16207", "#854D0E", "#0F172A"],
+            paletteDesc: "濃郁深重的暗色系，自帶強大氣場",
+            good: "酒紅、墨綠、巧克力棕、金屬古銅",
+            bad: "馬卡龍粉嫩色、輕薄淺粉色",
+            makeup: "牛血紅、吃土色唇膏；深邃煙燻金屬妝；強調輪廓陰影。",
+            hair: "黑棕色、深焦糖棕；適合重量感的金屬飾品或黑金首飾。",
+            outfit: "天鵝絨、厚重毛呢，用深色基底搭配局部暖金亮點點綴。"
+        },
+        "清秋 (Clear Autumn)": {
+            subtitle: "通透秋韻 × 乾淨有型",
+            tags: ["暖色調", "中明度", "中高彩度", "通透"],
+            palette: ["#FFFBEB", "#FBBF24", "#F97316", "#DC2626", "#16A34A", "#0D9488", "#D97706", "#EA580C", "#991B1B", "#15803D", "#B45309", "#C2410C", "#047857", "#65A30D", "#334155"],
+            paletteDesc: "保留秋季溫暖質感但剔除了沉悶灰濁感",
+            good: "琉璃黃、番茄紅、青松綠、光澤面料",
+            bad: "霧灰灰濁色、極淡粉無色感搭配",
+            makeup: "番茄紅唇膏、清透暖感眼影、自然微光澤底妝。",
+            hair: "深金棕、溫柔暖棕；光澤感強的黃金金屬飾品。",
+            outfit: "結合自然大地色與明亮暖色剪裁，選擇有挺度的平織面料。"
+        },
+        "淺夏 (Light Summer)": {
+            subtitle: "冰霜清亮 × 溫柔透明",
+            tags: ["冷色調", "高明度", "低彩度", "透亮"],
+            palette: ["#FFFFFF", "#F1F5F9", "#E2E8F0", "#CBD5E1", "#94A3B8", "#BFDBFE", "#93C5FD", "#A5B4FC", "#C084FC", "#F472B6", "#FBCFE8", "#A7F3D0", "#6EE7B7", "#E0E7FF", "#DDD6FE"],
+            paletteDesc: "如晨霧與微風般的冷調淺淡色彩",
+            good: "水晶紫、天空藍、珍珠白、白銀飾品",
+            bad: "厚重深黑、溫暖暖黃、土褐色系",
+            makeup: "冷粉色唇蜜、薰衣草紫或冰藍眼影、打造透明感清透底妝。",
+            hair: "黑茶色、黑灰色、冷灰棕；珍珠或白銀首飾完美契合。",
+            outfit: "適合絲綢、雪紡等飄逸布料，全淡色系配搭最顯飄逸仙氣。"
+        },
+        "冷夏 (Cool Summer)": {
+            subtitle: "極致冷調 × 知性優雅",
+            tags: ["極冷色", "中高明度", "低對比", "清爽"],
+            palette: ["#FFFFFF", "#CBD5E1", "#64748B", "#334155", "#3B82F6", "#1D4ED8", "#6D28D9", "#C026D3", "#DB2777", "#059669", "#0F766E", "#1E3A8A", "#3730A3", "#831843", "#0F172A"],
+            paletteDesc: "帶有高貴冰藍底色的典雅色彩圖鑑",
+            good: "霧藍、薰衣草紫、海軍藍、白銀首飾",
+            bad: "暖黃、暖橘、暖暖大地棕、黃金飾品",
+            makeup: "玫紅、冷莓果色唇膏；灰藍/灰紫眼影；冷色調腮紅。",
+            hair: "純黑、深冷灰棕；飾品限定白金、銀飾、鉑金。",
+            outfit: "剪裁合身的西裝、精緻棉麻，煙燻藍與灰紫搭配盡顯知性美。"
+        },
+        "柔夏 (Soft Summer)": {
+            subtitle: "霧氣朦朧 × 低調質感",
+            tags: ["微冷色", "中明度", "低彩度", "灰柔"],
+            palette: ["#F8FAFC", "#E2E8F0", "#94A3B8", "#64748B", "#475569", "#818CF8", "#A78BFA", "#F472B6", "#34D399", "#38BDF8", "#6366f1", "#8b5cf6", "#ec4899", "#10b981", "#1e293b"],
+            paletteDesc: "微薰莫蘭迪冷色，帶有高冷知性的煙燻質感",
+            good: "煙燻粉、灰藍、鼠尾草綠、啞光銀",
+            bad: "鮮豔亮橘、對比極強的純黑純白",
+            makeup: "霧面煙燻玫瑰唇膏、莫蘭迪灰棕眼影盤。",
+            hair: "冷亞麻、霧灰棕；飾品選擇啞光銀或霧面白金。",
+            outfit: "軟質針織、羊絨，多利用冷灰與莫蘭迪色階層次堆疊。"
+        },
+        "深夏 (Muted Summer)": {
+            subtitle: "低彩清輕 × 自然清透",
+            tags: ["微冷色", "中高明度", "極低彩度", "輕盈"],
+            palette: ["#FFFFFF", "#F1F5F9", "#E2E8F0", "#CBD5E1", "#94A3B8", "#C084FC", "#A855F7", "#60A5FA", "#3B82F6", "#4ADE80", "#F472B6", "#FB7185", "#E0E7FF", "#C7D2FE", "#334155"],
+            paletteDesc: "清透低飽和的輕冷色調，襯托皮膚乾淨通透",
+            good: "薄荷綠、冷灰、淡藍紫、珍珠光飾品",
+            bad: "濃郁深厚色彩、高彩度暖色系",
+            makeup: "淡粉潤唇膏、自然裸色系彩妝、輕透無瑕底妝。",
+            hair: "原生黑髮、自然深灰；珍珠、白水晶飾品搭配最佳。",
+            outfit: "簡約極簡風穿搭，選擇乾淨流暢的線條與淺冷色調。"
+        },
+        "暗冬 (Deep Winter)": {
+            subtitle: "冷酷深邃 × 氣場全開",
+            tags: ["冷色調", "低明度", "高對比", "冷艷"],
+            palette: ["#000000", "#0F172A", "#1E293B", "#334155", "#475569", "#1E3A8A", "#312E81", "#581C87", "#701A75", "#831843", "#881337", "#064E3B", "#134E4A", "#9F1239", "#FFFFFF"],
+            paletteDesc: "冷調的強烈暗色系，極度襯托皮膚白皙",
+            good: "純黑、勃艮第酒紅、墨綠、亮銀光澤",
+            bad: "土黃、馬卡龍暖粉、灰濁無對比色",
+            makeup: "深漿果色、正紅唇膏；俐落黑眼線與高對比立體輪廓。",
+            hair: "烏黑髮色、深藍黑；亮銀、白金或大顆黑寶石飾品。",
+            outfit: "強烈黑白對比穿搭、精緻皮革或亮面質感，氣場強烈。"
+        },
+        "冷冬 (Cool Winter)": {
+            subtitle: "極致寶石 × 傲雪凌霜",
+            tags: ["極冷色", "中明度", "高飽和", "清亮"],
+            palette: ["#FFFFFF", "#000000", "#1D4ED8", "#1E40AF", "#6D28D9", "#5B21B6", "#A21CAF", "#86198F", "#BE123C", "#9F1239", "#047857", "#065F46", "#1E293B", "#334155", "#94A3B8"],
+            paletteDesc: "宛如寶石般光彩奪目的極冷鮮豔色彩",
+            good: "寶藍、祖母綠、純黑白對比、鑽石飾品",
+            bad: "暖橙、芥末黃、暖大地棕色",
+            makeup: "亮洋紅、純冷紅唇膏；銀白高光與深藍/墨黑眼妝。",
+            hair: "冷艷烏黑髮色；水鑽、亮銀與鉑金飾品。",
+            outfit: "寶石色系高飽和大衣，結合俐落黑白底色，搶眼度十足。"
+        },
+        "亮冬 (Bright Winter)": {
+            subtitle: "高對比清透感 × 華麗冷艷",
+            tags: ["冷色調", "高明度", "高對比", "清透"],
+            palette: ["#FFFFFF", "#D1D5DB", "#9CA3AF", "#4B5563", "#000000", "#93C5FD", "#3B82F6", "#1E3A8A", "#7E22CE", "#C026D3", "#047857", "#064E3B", "#881337", "#E11D48", "#F472B6"],
+            paletteDesc: "極致對比色、冷色調鮮豔色系最能襯托發光膚色！",
+            good: "純黑白、寶藍、艷桃紅、亮銀飾品",
+            bad: "暖黃色、大地色系、濁灰微黃色彩",
+            makeup: "冷調豔桃紅或火紅唇彩；乾淨透亮底妝與精緻眼線。",
+            hair: "純黑、冷灰黑；拋光亮銀飾品與水鑽。",
+            outfit: "高對比撞色穿搭（如純白配寶藍）、光澤絲綢與漆皮面料。"
+        },
+        "柔冬 (Muted Winter)": {
+            subtitle: "冷感灰霧 × 高級高冷",
+            tags: ["冷色調", "中低明度", "低彩度", "煙燻"],
+            palette: ["#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#4338CA", "#6B21A8", "#9D174D", "#065F46", "#115E59", "#831843", "#9F1239", "#E2E8F0", "#CBD5E1", "#000000"],
+            paletteDesc: "冰冷中帶有煙燻灰感，展現獨特的高冷鬆弛感",
+            good: "炭灰、藏青、梅紫色、霧面銀飾",
+            bad: "明亮暖黃、亮橘色、明亮鮮豔色",
+            makeup: "梅子色、豆沙冷紫唇膏；灰調煙燻彩妝盤。",
+            hair: "冷深灰、霧黑；霧面白金與銀飾組合。",
+            outfit: "深色調西裝外套、毛呢大衣，利用不同灰度的暗色材質堆疊質感。"
+        }
+    };
+
+    function handleFileSelect(file) {
+        if (!file) return;
+        selectedFile = file;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('preview-img').src = e.target.result;
+            document.getElementById('preview-img').style.display = 'block';
+            
+            document.getElementById('card-user-img').style.backgroundImage = `url('${e.target.result}')`;
+            
+            document.getElementById('upload-txt').style.display = 'none';
+            document.getElementById('analyze-btn').disabled = false;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function uploadAndAnalyze() {
+        if (!selectedFile) return;
+
+        const btn = document.getElementById('analyze-btn');
+        btn.innerText = 'AI 色彩分析進行中...';
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('image', selectedFile);
+
+        try {
+            const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+            const data = await response.json();
+
+            if (response.ok) {
+                renderReport(data);
+                document.getElementById('upload-page').style.display = 'none';
+                document.getElementById('report-page').style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                alert('分析失敗：' + (data.error || '請確認照片後重試'));
+            }
+        } catch (err) {
+            alert('系統連線失敗，請稍後重試');
+        } finally {
+            btn.innerText = '開始診斷';
+            btn.disabled = false;
+        }
+    }
+
+    function renderReport(data) {
+        const seasonKey = data.season;
+        const config = colorDatabase[seasonKey] || colorDatabase["亮冬 (Bright Winter)"];
+
+        document.getElementById('card-season').innerText = seasonKey;
+        document.getElementById('card-subtitle').innerText = config.subtitle;
+        document.getElementById('card-tags').innerHTML = config.tags.map(t => `<span class="tag">${t}</span>`).join('');
+
+        // 依據後端指標位移 Indicator
+        document.getElementById('pointer-warm').style.left = data.is_warm ? '20%' : '80%';
+        document.getElementById('pointer-light').style.left = data.is_light ? '80%' : '20%';
+        document.getElementById('pointer-clear').style.left = data.is_clear ? '80%' : '20%';
+
+        document.getElementById('card-palette').innerHTML = config.palette.map(hex => `<div class="color-circle" style="background-color: ${hex};"></div>`).join('');
+        document.getElementById('card-palette-desc').innerText = config.paletteDesc;
+
+        document.getElementById('card-good-text').innerText = config.good;
+        document.getElementById('card-bad-text').innerText = config.bad;
+
+        document.getElementById('card-makeup-text').innerText = config.makeup;
+        document.getElementById('card-hair-text').innerText = config.hair;
+        document.getElementById('card-outfit-text').innerText = config.outfit;
+    }
+
+    function resetToUpload() {
+        document.getElementById('report-page').style.display = 'none';
+        document.getElementById('upload-page').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        selectedFile = null;
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) fileInput.value = '';
+
+        const previewImg = document.getElementById('preview-img');
+        if (previewImg) {
+            previewImg.src = '';
+            previewImg.style.display = 'none';
+        }
+
+        const cardUserImg = document.getElementById('card-user-img');
+        if (cardUserImg) {
+            cardUserImg.style.backgroundImage = 'none';
+        }
+
+        const uploadTxt = document.getElementById('upload-txt');
+        if (uploadTxt) {
+            uploadTxt.style.display = 'block';
+        }
+
+        const analyzeBtn = document.getElementById('analyze-btn');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+        }
+    }
+
+    async function downloadReportImage() {
+        const reportContainer = document.getElementById('full-report-container');
+        
+        const canvas = await html2canvas(reportContainer, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false
+        });
+
+        const image = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = image;
+        link.download = `Personal_Color_Report_${Date.now()}.png`;
+        link.click();
+    }
+</script>
+
+</body>
+</html>
