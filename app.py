@@ -82,32 +82,46 @@ def map_to_16_seasons(h, s, v):
 
 def analyze_skin(image_bytes):
     """
-    OpenCV + K-Means 膚色分析核心邏輯
+    OpenCV + K-Means 膚色分析核心邏輯（加入尺寸標準化、像素抽樣與主色彩權重修正）
     """
+    # 1. 圖片解碼
     np_img = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
     if img is None:
         return None
 
+    # 尺寸標準化：統一縮放至 500x500，確保跨裝置解析度一致
+    img = cv2.resize(img, (500, 500), interpolation=cv2.INTER_AREA)
+
     # 轉為 HSV 色彩空間
     hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    # 膚色範圍遮罩過濾 (HSV 閥值)
+    # 2. 膚色範圍遮罩過濾 (HSV 閥值)
     lower_skin = np.array([0, 20, 70], dtype=np.uint8)
     upper_skin = np.array([20, 255, 255], dtype=np.uint8)
     mask = cv2.inRange(hsv_img, lower_skin, upper_skin)
     skin_pixels = hsv_img[mask > 0]
 
-    # 若過濾後像素不足，降級採用圖像中央區域
+    # 3. 若過濾後像素不足，降級採用圖像中央區域
     if len(skin_pixels) < 100:
         h, w, _ = img.shape
         skin_pixels = hsv_img[int(h * 0.3):int(h * 0.7), int(w * 0.3):int(w * 0.7)].reshape(-1, 3)
 
-    # K-Means 聚類取出主要膚色
+    # 【速度優化】：限制最多抽樣 5,000 個像素點，大幅提昇運算速度
+    if len(skin_pixels) > 5000:
+        np.random.seed(42)
+        indices = np.random.choice(len(skin_pixels), 5000, replace=False)
+        skin_pixels = skin_pixels[indices]
+
+    # K-Means 聚類取出最多的主要膚色群心
     kmeans = KMeans(n_clusters=3, n_init=10, random_state=42)
-    kmeans.fit(skin_pixels)
-    dominant_hsv = kmeans.cluster_centers_[0]
+    labels = kmeans.fit_predict(skin_pixels)
+    
+    # 計算每個群集的像素數量，取數量最多的群心，避免誤取邊緣雜色
+    counts = np.bincount(labels)
+    dominant_cluster_idx = np.argmax(counts)
+    dominant_hsv = kmeans.cluster_centers_[dominant_cluster_idx]
 
     return {
         'avg_h': float(dominant_hsv[0]),
