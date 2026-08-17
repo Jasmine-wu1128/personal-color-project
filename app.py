@@ -8,11 +8,7 @@ app = Flask(__name__)
 def map_to_16_seasons(h, s, v):
     """
     16 型個人色彩判斷引擎
-    h (0~180): 色調 Hue
-    s (0~255): 飽和度 Saturation
-    v (0~255): 明度 Value
     """
-    # 1. 特徵分數歸一化 (-1.0 到 1.0)
     if h < 25:
         warm_score = (15 - h) / 15.0
     elif h > 150:
@@ -27,7 +23,6 @@ def map_to_16_seasons(h, s, v):
     is_light = light_score >= 0
     is_clear = clear_score >= 0
 
-    # 2. 16 型判斷邏輯
     if is_warm:
         if is_light:
             if abs(clear_score) > abs(light_score) and is_clear:
@@ -82,43 +77,52 @@ def map_to_16_seasons(h, s, v):
 
 def analyze_skin(image_bytes):
     """
-    OpenCV + K-Means 膚色分析核心邏輯（加入尺寸標準化、像素抽樣與主色彩權重修正）
+    OpenCV + K-Means 膚色分析核心邏輯（極致省記憶體安全版）
     """
-    # 1. 圖片解碼
-    np_img = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-
-    if img is None:
+    # 1. 檔案大小限制防護：超量圖片直接拒絕解碼，保護記憶體
+    if len(image_bytes) > 10 * 1024 * 1024:
         return None
 
-    # 尺寸標準化：統一縮放至 500x500，確保跨裝置解析度一致
-    img = cv2.resize(img, (500, 500), interpolation=cv2.INTER_AREA)
+    # 2. 圖片解碼（採用低解析度標籤降低記憶體開銷）
+    np_img = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(np_img, cv2.IMREAD_REDUCED_COLOR_4) # 強制以 1/4 尺寸解碼
+
+    if img is None:
+        # 若減半解碼失敗則退回原解碼
+        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+        if img is None:
+            return None
+
+    # 限制最大邊長為 400px，徹底控管記憶體使用
+    h, w = img.shape[:2]
+    max_dim = max(h, w)
+    if max_dim > 400:
+        scale = 400.0 / max_dim
+        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
     # 轉為 HSV 色彩空間
     hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    # 2. 膚色範圍遮罩過濾 (HSV 閥值)
+    # 3. 膚色範圍遮罩過濾 (HSV 閥值)
     lower_skin = np.array([0, 20, 70], dtype=np.uint8)
     upper_skin = np.array([20, 255, 255], dtype=np.uint8)
     mask = cv2.inRange(hsv_img, lower_skin, upper_skin)
     skin_pixels = hsv_img[mask > 0]
 
-    # 3. 若過濾後像素不足，降級採用圖像中央區域
     if len(skin_pixels) < 100:
         h, w, _ = img.shape
         skin_pixels = hsv_img[int(h * 0.3):int(h * 0.7), int(w * 0.3):int(w * 0.7)].reshape(-1, 3)
 
-    # 【速度優化】：限制最多抽樣 5,000 個像素點，大幅提昇運算速度
-    if len(skin_pixels) > 5000:
+    # 極致抽樣：最多採樣 2,000 個像素點，運算極速且不占記憶體
+    if len(skin_pixels) > 2000:
         np.random.seed(42)
-        indices = np.random.choice(len(skin_pixels), 5000, replace=False)
+        indices = np.random.choice(len(skin_pixels), 2000, replace=False)
         skin_pixels = skin_pixels[indices]
 
-    # K-Means 聚類取出最多的主要膚色群心
-    kmeans = KMeans(n_clusters=3, n_init=10, random_state=42)
+    # K-Means 聚類取出主要的膚色
+    kmeans = KMeans(n_clusters=3, n_init=5, random_state=42)
     labels = kmeans.fit_predict(skin_pixels)
     
-    # 計算每個群集的像素數量，取數量最多的群心，避免誤取邊緣雜色
     counts = np.bincount(labels)
     dominant_cluster_idx = np.argmax(counts)
     dominant_hsv = kmeans.cluster_centers_[dominant_cluster_idx]
@@ -145,19 +149,16 @@ def analyze():
         if file.filename == '':
             return jsonify({"error": "未選擇檔案"}), 400
 
-        # 重置檔案讀取指標，避免讀取到空位元組
         file.seek(0)
         image_bytes = file.read()
 
         if not image_bytes:
             return jsonify({"error": "圖片資料為空"}), 400
 
-        # 執行影像處理
         raw_result = analyze_skin(image_bytes)
         if raw_result is None:
-            return jsonify({"error": "無法解碼圖片，請更換清晰照片"}), 400
+            return jsonify({"error": "圖片檔案過大或格式無法解碼，請更換較小檔案或清晰照片"}), 400
 
-        # 進行 16 型判定
         analysis_data = map_to_16_seasons(
             raw_result['avg_h'],
             raw_result['avg_s'],
